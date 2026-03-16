@@ -11,9 +11,10 @@ Welcome! In this exercise you'll read a technical article about building evaluat
 
 ## Exercise Flow
 
-1. **Read** `reading-material.md` — a condensed version of Anthropic's "Demystifying Evals for AI Agents"
-2. **Build** a general-purpose eval system based on the concepts from the reading
-3. **Discuss** tradeoffs, grader design, and architecture decisions with the interviewer
+1. **Clone this repo** and kick off any environment setup while we move to step 2
+2. **Read together** — we'll all read `reading-material.md` silently for the first 10 minutes (a condensed version of Anthropic's "Demystifying Evals for AI Agents")
+3. **Build** a general-purpose eval system based on the concepts from the reading
+4. **Discuss** tradeoffs, grader design, and architecture decisions with the interviewer
 
 Use whatever language, framework, and AI tools you're most productive with. There are no wrong choices here.
 
