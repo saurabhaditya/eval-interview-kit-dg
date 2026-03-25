@@ -1,0 +1,376 @@
+[
+  {
+    "id": "mt_001_clarification_loop",
+    "description": "Agent asks vendor to clarify which invoice a payment applies to, vendor responds, agent processes",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "inbound",
+        "from": "ar@buildright.com",
+        "to": "ap@ourcompany.com",
+        "subject": "Payment Received",
+        "body": "Hi,\n\nWe received a payment of $4,200.00 from your company. Could you let us know which invoice this applies to? We have several open ones on your account.\n\nThanks,\nLisa Wang\nBuildRight Construction"
+      },
+      {
+        "turn": 2,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "ar@buildright.com",
+        "subject": "RE: Payment Received",
+        "body": "Hi Lisa,\n\nCould you share the open invoice numbers on our account so we can match the payment?\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "CLARIFICATION_REQUEST",
+          "terminal_state": "awaiting_response"
+        }
+      },
+      {
+        "turn": 3,
+        "direction": "inbound",
+        "from": "ar@buildright.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: RE: Payment Received",
+        "body": "Sure! Here are the open invoices:\n- INV-BR-1010: $4,200.00 (due Feb 15)\n- INV-BR-1015: $4,200.00 (due Mar 1)\n- INV-BR-1022: $1,800.00 (due Mar 15)\n\nLet me know which one to apply it to.\n\nThanks,\nLisa"
+      },
+      {
+        "turn": 4,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "ar@buildright.com",
+        "subject": "RE: RE: RE: Payment Received",
+        "body": "Hi Lisa,\n\nPlease apply the $4,200.00 payment to INV-BR-1010.\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "PAYMENT_ALLOCATION",
+          "terminal_state": "processed"
+        }
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-BR-1010", "amount": 4200.00},
+        {"invoice_id": "INV-BR-1015", "amount": 4200.00},
+        {"invoice_id": "INV-BR-1022", "amount": 1800.00}
+      ],
+      "resolved_invoice": {"invoice_id": "INV-BR-1010", "amount": 4200.00},
+      "requires_escalation": false,
+      "context_retained": ["payment_amount", "open_invoice_list", "selected_invoice"]
+    },
+    "_grading_notes": "Key test: agent must retain the $4,200.00 payment amount from turn 1 through to turn 4 without re-asking. All three invoices should be extracted from turn 3, but only INV-BR-1010 should be marked as resolved."
+  },
+  {
+    "id": "mt_002_escalation_resolution",
+    "description": "Amount mismatch triggers escalation, human provides guidance, agent sends follow-up to vendor",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "inbound",
+        "from": "billing@globalparts.io",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: Invoice #INV-GP-3301 - Correction",
+        "body": "Hello,\n\nWe need to correct Invoice #INV-GP-3301. The original amount was $6,500.00 but should be $9,100.00 due to additional parts shipped on Feb 12 (see delivery note DN-4455).\n\nPlease update your records.\n\nRegards,\nMike Torres\nGlobal Parts Inc."
+      },
+      {
+        "turn": 2,
+        "direction": "internal",
+        "from": "agent",
+        "to": "human_reviewer",
+        "subject": "Escalation: Amount correction requested for INV-GP-3301",
+        "body": "Vendor requests amount change from $6,500.00 to $9,100.00 (+$2,600.00) citing additional shipment DN-4455. Requires approval before updating.",
+        "expected_action": {
+          "type": "escalation",
+          "escalation_reason": "amount_correction_requested",
+          "terminal_state": "escalated"
+        }
+      },
+      {
+        "turn": 3,
+        "direction": "internal",
+        "from": "human_reviewer",
+        "to": "agent",
+        "subject": "RE: Escalation: Amount correction requested for INV-GP-3301",
+        "body": "Confirmed — DN-4455 is valid, we did receive the additional parts. Approve the correction to $9,100.00. Send confirmation to vendor."
+      },
+      {
+        "turn": 4,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "billing@globalparts.io",
+        "subject": "RE: Invoice #INV-GP-3301 - Correction Approved",
+        "body": "Hi Mike,\n\nWe've verified delivery note DN-4455 and updated Invoice #INV-GP-3301 to the corrected amount of $9,100.00.\n\nPayment will be processed per standard terms.\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "CONFIRMATION",
+          "terminal_state": "processed"
+        }
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-GP-3301", "amount": 9100.00, "original_amount": 6500.00}
+      ],
+      "requires_accrual": true,
+      "accrual_amount": 2600.00,
+      "escalation_occurred": true,
+      "escalation_resolved": true,
+      "context_retained": ["original_amount", "corrected_amount", "delivery_note_reference", "human_approval"]
+    },
+    "_grading_notes": "Tests the full escalation lifecycle. Agent must: (1) detect the mismatch and escalate, (2) incorporate human guidance, (3) send correct follow-up. Grade partial credit if escalation is correct but follow-up is wrong."
+  },
+  {
+    "id": "mt_003_progressive_disclosure",
+    "description": "Vendor reveals information across 3 emails — agent must accumulate context before processing",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "inbound",
+        "from": "accounts@northwind.com",
+        "to": "ap@ourcompany.com",
+        "subject": "Outstanding Balance",
+        "body": "Hi,\n\nJust a heads-up that you have an outstanding balance with us. I'll send the details shortly.\n\nRegards,\nPriya Sharma\nNorthwind Traders"
+      },
+      {
+        "turn": 2,
+        "direction": "inbound",
+        "from": "accounts@northwind.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: Outstanding Balance - Invoice Number",
+        "body": "The invoice number is INV-NW-8820.\n\n- Priya"
+      },
+      {
+        "turn": 3,
+        "direction": "inbound",
+        "from": "accounts@northwind.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: RE: Outstanding Balance - Full Details",
+        "body": "Sorry for the multiple emails! Here are the full details:\n\nInvoice: INV-NW-8820\nAmount: $3,750.00\nPO Reference: PO-2290\nDue Date: March 30, 2024\nTerms: Net-30\n\nPlease confirm receipt and expected payment date.\n\nThanks,\nPriya"
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "awaiting_response",
+      "requires_writeback": true,
+      "writeback_type": "CONFIRMATION",
+      "extracted_invoices": [
+        {"invoice_id": "INV-NW-8820", "amount": 3750.00, "po_reference": "PO-2290", "due_date": "2024-03-30"}
+      ],
+      "requires_escalation": false,
+      "context_retained": ["invoice_id_from_turn_2", "amount_from_turn_3", "po_reference"],
+      "turns_before_actionable": 3
+    },
+    "_grading_notes": "Agent should NOT process after turn 1 (no actionable info) or turn 2 (incomplete). Only turn 3 has enough info to extract and respond. Test that the agent doesn't hallucinate an amount from turns 1-2. The single invoice should appear once, not three times."
+  },
+  {
+    "id": "mt_004_vacation_handoff_chain",
+    "description": "Out-of-office triggers contact with alternate, who resolves the original question",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "jdoe@vendor.com",
+        "subject": "Invoice #INV-VND-5501 - Payment Terms Clarification",
+        "body": "Hi John,\n\nCould you confirm the payment terms for Invoice #INV-VND-5501 ($2,800.00)? Our records show Net-30 but the invoice states Net-15.\n\nRegards,\nAP Team"
+      },
+      {
+        "turn": 2,
+        "direction": "inbound",
+        "from": "jdoe@vendor.com",
+        "to": "ap@ourcompany.com",
+        "subject": "Out of Office: RE: Invoice #INV-VND-5501 - Payment Terms Clarification",
+        "body": "Thank you for your email. I am out of the office until April 5th.\n\nFor billing inquiries, please contact Angela Park at apark@vendor.com.\n\nBest,\nJohn Doe",
+        "expected_action": {
+          "type": "detect_ooo",
+          "cc_additions": ["apark@vendor.com"]
+        }
+      },
+      {
+        "turn": 3,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "apark@vendor.com",
+        "subject": "FW: Invoice #INV-VND-5501 - Payment Terms Clarification",
+        "body": "Hi Angela,\n\nJohn is out of office and directed billing inquiries to you. Could you confirm the payment terms for Invoice #INV-VND-5501 ($2,800.00)? We see Net-30 in our records but the invoice states Net-15.\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "FORWARDED_INQUIRY",
+          "terminal_state": "awaiting_response"
+        }
+      },
+      {
+        "turn": 4,
+        "direction": "inbound",
+        "from": "apark@vendor.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: FW: Invoice #INV-VND-5501 - Payment Terms Clarification",
+        "body": "Hi,\n\nGood catch — the correct terms are Net-30. The invoice was generated from an old template. I'll issue a corrected copy.\n\nApologies for the confusion.\n\nAngela Park\nBilling Manager"
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-VND-5501", "amount": 2800.00, "payment_terms": "Net-30"}
+      ],
+      "requires_escalation": false,
+      "cc_additions": ["apark@vendor.com"],
+      "is_vacation_response": true,
+      "handoff_occurred": true,
+      "original_question_resolved": true,
+      "context_retained": ["invoice_id", "amount", "terms_discrepancy", "alternate_contact", "resolution"]
+    },
+    "_grading_notes": "Tests the full vacation handoff flow. Agent must: (1) detect OOO, (2) extract alternate contact, (3) forward original question with full context, (4) process Angela's resolution. Key: the forwarded email in turn 3 must include the original question — not just 'hi, John is out.'"
+  },
+  {
+    "id": "mt_005_dispute_negotiation",
+    "description": "Vendor disputes an amount, agent requests documentation, vendor provides proof, agent processes adjusted amount",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "inbound",
+        "from": "finance@steelworks.com",
+        "to": "ap@ourcompany.com",
+        "subject": "Dispute: Invoice #INV-SW-2200",
+        "body": "Hi,\n\nWe're disputing Invoice #INV-SW-2200. Your records show $11,000.00 but we billed $13,500.00. The difference is the $2,500 installation service agreed upon in the amended contract (Amendment #3, signed Jan 20).\n\nPlease correct.\n\nRaj Patel\nSteelWorks Manufacturing"
+      },
+      {
+        "turn": 2,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "finance@steelworks.com",
+        "subject": "RE: Dispute: Invoice #INV-SW-2200 - Documentation Required",
+        "body": "Hi Raj,\n\nThank you for flagging this. Could you provide a copy of Amendment #3 and the signed service agreement so we can verify the additional charge?\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "DOCUMENTATION_REQUEST",
+          "terminal_state": "awaiting_response"
+        }
+      },
+      {
+        "turn": 3,
+        "direction": "inbound",
+        "from": "finance@steelworks.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: RE: Dispute: Invoice #INV-SW-2200 - Documentation Attached",
+        "body": "Hi,\n\nPlease find attached:\n1. Contract Amendment #3 (signed by your procurement team)\n2. Installation service completion report\n3. Revised invoice INV-SW-2200-R1 for $13,500.00\n\nLet me know if you need anything else.\n\nRaj",
+        "attachments": [
+          {"filename": "amendment_3.pdf", "content_type": "application/pdf"},
+          {"filename": "installation_report.pdf", "content_type": "application/pdf"},
+          {"filename": "INV-SW-2200-R1.pdf", "content_type": "application/pdf"}
+        ]
+      },
+      {
+        "turn": 4,
+        "direction": "internal",
+        "from": "agent",
+        "to": "human_reviewer",
+        "subject": "Review: Dispute resolution for INV-SW-2200",
+        "body": "Vendor provided Amendment #3 and service completion report supporting $2,500 increase. Revised invoice INV-SW-2200-R1 for $13,500.00. Recommend approval.",
+        "expected_action": {
+          "type": "escalation",
+          "escalation_reason": "dispute_resolution_review",
+          "terminal_state": "escalated"
+        }
+      },
+      {
+        "turn": 5,
+        "direction": "internal",
+        "from": "human_reviewer",
+        "to": "agent",
+        "subject": "RE: Review: Dispute resolution for INV-SW-2200",
+        "body": "Approved. Amendment #3 checks out. Process at $13,500.00."
+      },
+      {
+        "turn": 6,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "finance@steelworks.com",
+        "subject": "RE: Dispute: Invoice #INV-SW-2200 - Resolved",
+        "body": "Hi Raj,\n\nWe've reviewed the documentation and updated our records. Invoice INV-SW-2200-R1 for $13,500.00 has been approved for payment under standard terms.\n\nThank you for your patience.\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "RESOLUTION_CONFIRMATION",
+          "terminal_state": "processed"
+        }
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-SW-2200", "original_amount": 11000.00, "status": "superseded"},
+        {"invoice_id": "INV-SW-2200-R1", "amount": 13500.00, "status": "approved"}
+      ],
+      "requires_accrual": true,
+      "accrual_amount": 2500.00,
+      "escalation_occurred": true,
+      "escalation_resolved": true,
+      "dispute_resolved": true,
+      "context_retained": ["original_amount", "disputed_amount", "amendment_reference", "documentation_provided", "human_approval"]
+    },
+    "_grading_notes": "Longest scenario — tests full dispute lifecycle. Partial credit structure: +1 correct initial classification, +1 requests documentation (not just escalates blindly), +1 escalates with summary after receiving docs, +1 correct final amount, +1 sends resolution to vendor. Agent should NOT auto-approve the $13,500 without human review."
+  },
+  {
+    "id": "mt_006_attachment_retry",
+    "description": "Agent cannot process a blurry/corrupted attachment, requests re-send, vendor provides clean version",
+    "turns": [
+      {
+        "turn": 1,
+        "direction": "inbound",
+        "from": "ap@techfirm.com",
+        "to": "ap@ourcompany.com",
+        "subject": "Invoice for Consulting Services - Feb 2024",
+        "body": "Hi,\n\nAttached is our invoice for consulting services rendered in February.\n\nPlease process at your earliest convenience.\n\nRegards,\nKaren Liu\nTechFirm Solutions",
+        "attachments": [
+          {
+            "filename": "invoice_feb2024.jpg",
+            "content_type": "image/jpeg",
+            "quality": "low_resolution",
+            "ocr_result": {
+              "confidence": 0.35,
+              "extracted_text": "INV-TF-????\nAmount: $?,?00.00\nDate: Feb ??, 2024"
+            }
+          }
+        ]
+      },
+      {
+        "turn": 2,
+        "direction": "outbound",
+        "from": "ap@ourcompany.com",
+        "to": "ap@techfirm.com",
+        "subject": "RE: Invoice for Consulting Services - Feb 2024 - Clearer Copy Needed",
+        "body": "Hi Karen,\n\nThank you for sending the invoice. Unfortunately, the attached image is too low-resolution for us to read the details clearly. Could you resend as a PDF or a higher-resolution image?\n\nWe need to confirm the invoice number, amount, and date.\n\nRegards,\nAP Team",
+        "expected_action": {
+          "type": "writeback",
+          "writeback_type": "IMAGE_QUALITY_REQUEST",
+          "terminal_state": "awaiting_response"
+        }
+      },
+      {
+        "turn": 3,
+        "direction": "inbound",
+        "from": "ap@techfirm.com",
+        "to": "ap@ourcompany.com",
+        "subject": "RE: RE: Invoice for Consulting Services - Feb 2024 - Clearer Copy",
+        "body": "Sorry about that! Here's the PDF version.\n\nKaren",
+        "attachments": [
+          {
+            "filename": "INV-TF-0892_Feb2024.pdf",
+            "content_type": "application/pdf",
+            "description": "Clean PDF invoice: INV-TF-0892, Amount: $7,200.00, Date: Feb 28, 2024, Terms: Net-30, Services: 48 hours consulting @ $150/hr"
+          }
+        ]
+      }
+    ],
+    "expected_final": {
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-TF-0892", "amount": 7200.00, "date": "2024-02-28"}
+      ],
+      "requires_escalation": false,
+      "requires_accrual": false,
+      "attachment_retry_occurred": true,
+      "context_retained": ["original_request_context", "quality_issue_identified", "clean_attachment_received"]
+    },
+    "_grading_notes": "Agent must NOT guess values from the low-confidence OCR in turn 1. The correct behavior is to request a clearer copy. After turn 3, the agent should extract from the clean PDF and process. Penalize if agent fabricates invoice details from the blurry image."
+  }
+]
