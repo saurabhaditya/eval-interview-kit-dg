@@ -1,0 +1,102 @@
+[
+  {
+    "id": "email_001_simple_confirmation",
+    "description": "Vendor confirms invoice amount — straightforward positive case",
+    "input": {
+      "subject": "RE: Invoice #INV-2024-0042",
+      "from": "accounts@acme-supply.com",
+      "to": "ap@ourcompany.com",
+      "body": "Hi,\n\nThis is to confirm that Invoice #INV-2024-0042 for $1,250.00 is correct and matches our records.\n\nPlease proceed with payment at your earliest convenience.\n\nBest regards,\nSarah Chen\nAccounts Receivable, Acme Supply Co."
+    },
+    "expected": {
+      "classification": "confirmation",
+      "requires_escalation": false,
+      "requires_accrual": false,
+      "terminal_state": "processed",
+      "extracted_invoices": [
+        {"invoice_id": "INV-2024-0042", "amount": 1250.00}
+      ]
+    }
+  },
+  {
+    "id": "email_002_amount_mismatch",
+    "description": "Vendor disputes amount — should escalate to human review",
+    "input": {
+      "subject": "RE: Invoice #INV-2024-0099 - Amount Discrepancy",
+      "from": "billing@globalparts.io",
+      "to": "ap@ourcompany.com",
+      "body": "Hello,\n\nRegarding Invoice #INV-2024-0099, we show the correct amount as $8,430.00, not $7,200.00 as stated in your records. The difference of $1,230.00 is due to the additional rush shipping charges agreed upon in PO-5567.\n\nPlease update your records accordingly.\n\nRegards,\nMike Torres\nGlobal Parts Inc."
+    },
+    "expected": {
+      "classification": "dispute",
+      "requires_escalation": true,
+      "escalation_reason": "amount_mismatch",
+      "requires_accrual": true,
+      "accrual_amount": 1230.00,
+      "terminal_state": "escalated",
+      "extracted_invoices": [
+        {"invoice_id": "INV-2024-0099", "amount": 8430.00}
+      ]
+    }
+  },
+  {
+    "id": "email_003_vacation_auto_reply",
+    "description": "Out-of-office auto-reply — agent should recognize and not process",
+    "input": {
+      "subject": "Out of Office: RE: Statement of Account - Q1 2024",
+      "from": "jdoe@vendor.com",
+      "to": "ap@ourcompany.com",
+      "body": "Thank you for your email. I am currently out of the office until March 25th with limited access to email.\n\nFor urgent matters, please contact my colleague Angela Park at apark@vendor.com.\n\nBest,\nJohn Doe"
+    },
+    "expected": {
+      "classification": "auto_generated",
+      "is_vacation_response": true,
+      "requires_escalation": false,
+      "requires_accrual": false,
+      "terminal_state": "no_action_needed",
+      "cc_additions": ["apark@vendor.com"],
+      "extracted_invoices": []
+    }
+  },
+  {
+    "id": "email_004_question_needs_clarification",
+    "description": "Vendor asks a question that requires a human-authored response",
+    "input": {
+      "subject": "RE: Payment for Invoice #INV-2024-0201",
+      "from": "ar@buildright.com",
+      "to": "ap@ourcompany.com",
+      "body": "Hi Team,\n\nWe received your payment of $3,500.00 but we have two open invoices:\n- INV-2024-0201 for $3,500.00\n- INV-2024-0188 for $3,500.00\n\nCould you please confirm which invoice this payment was applied to?\n\nThank you,\nLisa Wang\nBuildRight Construction"
+    },
+    "expected": {
+      "classification": "question",
+      "requires_escalation": false,
+      "requires_writeback": true,
+      "writeback_type": "CLARIFICATION_REQUEST",
+      "terminal_state": "awaiting_response",
+      "extracted_invoices": [
+        {"invoice_id": "INV-2024-0201", "amount": 3500.00},
+        {"invoice_id": "INV-2024-0188", "amount": 3500.00}
+      ]
+    }
+  },
+  {
+    "id": "email_005_payment_reminder",
+    "description": "Vendor sends payment reminder — classify and track",
+    "input": {
+      "subject": "Payment Reminder: Invoice #INV-2024-0150 - 30 Days Past Due",
+      "from": "collections@techserve.com",
+      "to": "ap@ourcompany.com",
+      "body": "Dear Accounts Payable,\n\nThis is a friendly reminder that Invoice #INV-2024-0150 for $12,750.00 dated January 15, 2024 is now 30 days past due.\n\nPlease arrange payment at your earliest convenience to avoid any late fees.\n\nIf payment has already been sent, please disregard this notice.\n\nSincerely,\nCollections Department\nTechServe Solutions"
+    },
+    "expected": {
+      "classification": "payment_reminder",
+      "requires_escalation": true,
+      "escalation_reason": "overdue_payment",
+      "requires_accrual": false,
+      "terminal_state": "escalated",
+      "extracted_invoices": [
+        {"invoice_id": "INV-2024-0150", "amount": 12750.00}
+      ]
+    }
+  }
+]
